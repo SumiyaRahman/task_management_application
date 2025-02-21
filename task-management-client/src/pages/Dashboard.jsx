@@ -1,5 +1,6 @@
+import React from 'react';
 import { useState } from 'react';
-import { DndContext, SensorContext, closestCorners } from '@dnd-kit/core';
+import { DndContext, closestCorners, useSensor, TouchSensor, MouseSensor, useSensors } from '@dnd-kit/core';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import TaskColumn from '../components/TaskColumn';
@@ -7,6 +8,23 @@ import AddTaskModal from '../components/AddTaskModal';
 import TaskStats from '../components/TaskStats';
 
 const Dashboard = () => {
+  // Define sensors first
+  const mouseSensor = useSensor(MouseSensor, {
+    activationConstraint: {
+      distance: 10,
+    },
+  });
+
+  const touchSensor = useSensor(TouchSensor, {
+    activationConstraint: {
+      delay: 250,
+      tolerance: 5,
+    },
+  });
+
+  const sensors = useSensors(mouseSensor, touchSensor);
+
+  // Other hooks
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const queryClient = useQueryClient();
 
@@ -72,6 +90,7 @@ const Dashboard = () => {
       <DndContext
         onDragEnd={handleDragEnd}
         collisionDetection={closestCorners}
+        sensors={sensors}
       >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <TaskColumn

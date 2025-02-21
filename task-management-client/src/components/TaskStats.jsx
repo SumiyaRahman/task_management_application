@@ -1,3 +1,5 @@
+import React from 'react';
+
 const TaskStats = ({ total, completed, inProgress, todo }) => {
   return (
     <div className="stats shadow w-full">

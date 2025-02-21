@@ -2,10 +2,13 @@ import React, { useContext, useState } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { AuthContext } from "../provider/AuthContext";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
 const Login = () => {
   const { googleSignIn } = useContext(AuthContext);
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleGoogleSignIn = async () => {
     try {
@@ -21,7 +24,8 @@ const Login = () => {
       };
 
       await axios.post('http://localhost:5000/users', userInfo);
-      
+      navigate('/');
+      toast.success('User created successfully');
     } catch (error) {
       console.error(error);
     } finally {
