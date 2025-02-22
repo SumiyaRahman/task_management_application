@@ -12,7 +12,7 @@ const AddTaskModal = ({ isOpen, onClose }) => {
 
   const addTaskMutation = useMutation({
     mutationFn: async (newTask) => {
-      const { data } = await axios.post('http://localhost:5000/tasks', newTask);
+      const { data } = await axios.post('https://task-management-app-vert-seven.vercel.app/tasks', newTask);
       return data;
     },
     onSuccess: () => {

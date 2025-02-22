@@ -15,7 +15,7 @@ export const useSignInWithGoogle = () => {
       const result = await signInWithPopup(auth, provider);
       
       // Save user to database
-      await axios.post('http://localhost:5000/users', {
+      await axios.post('https://task-management-app-vert-seven.vercel.app/users', {
         uid: result.user.uid,
         email: result.user.email,
         displayName: result.user.displayName

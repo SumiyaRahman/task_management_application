@@ -23,7 +23,7 @@ const Login = () => {
         photoURL: result.user?.photoURL
       };
 
-      await axios.post('http://localhost:5000/users', userInfo);
+      await axios.post('https://task-management-app-vert-seven.vercel.app/users', userInfo);
       navigate('/');
       toast.success('User created successfully');
     } catch (error) {

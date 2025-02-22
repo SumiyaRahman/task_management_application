@@ -31,7 +31,7 @@ const TaskCard = ({ task }) => {
 
   const deleteTaskMutation = useMutation({
     mutationFn: async () => {
-      await axios.delete(`http://localhost:5000/tasks/${task._id}`);
+      await axios.delete(`https://task-management-app-vert-seven.vercel.app/tasks/${task._id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['tasks']);

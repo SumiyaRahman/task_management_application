@@ -36,7 +36,7 @@ const Dashboard = () => {
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ['tasks'],
     queryFn: async () => {
-      const { data } = await axios.get('http://localhost:5000/tasks');
+      const { data } = await axios.get('https://task-management-app-vert-seven.vercel.app/tasks');
       return data;
     }
   });
@@ -45,7 +45,7 @@ const Dashboard = () => {
     mutationFn: async (updatedTask) => {
       // Only send status and order in update
       const { data } = await axios.patch(
-        `http://localhost:5000/tasks/${updatedTask._id}`,
+        `https://task-management-app-vert-seven.vercel.app/tasks/${updatedTask._id}`,
         {
           status: updatedTask.status,
           order: updatedTask.order
