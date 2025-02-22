@@ -69,77 +69,40 @@ const Dashboard = () => {
     if (!over) return;
 
     const activeTask = tasks.find(task => task._id === active.id);
+    const overTask = tasks.find(task => task._id === over.id);
     
-    // Get the correct status from the container
-    const newStatus = over.data?.current?.type === 'Column' ? over.id : over.data?.current?.status;
-    
-    if (activeTask.status !== newStatus) {
-      // Moving to a different status/column
-      const tasksInTargetStatus = tasks.filter(t => t.status === newStatus);
-      const updatedTask = {
-        ...activeTask,
-        status: newStatus,
-        order: tasksInTargetStatus.length // Add to end of new column
-      };
+    // Get the target status - either from the column or the task being dropped on
+    const targetStatus = over.data?.current?.type === 'Column' 
+      ? over.id 
+      : overTask?.status;
 
-      // Optimistically update UI
-      queryClient.setQueryData(['tasks'], oldTasks => {
-        return oldTasks.map(t => t._id === activeTask._id ? updatedTask : t);
-      });
-      
-      try {
-        await updateTaskMutation.mutateAsync(updatedTask);
-      } catch (error) {
-        console.error('Error updating task:', error);
-        // Revert optimistic update on error
-        queryClient.setQueryData(['tasks'], tasks);
-      }
-    } else {
-      // Reordering within the same column
-      const columnTasks = tasks
-        .filter(t => t.status === activeTask.status)
-        .sort((a, b) => a.order - b.order);
-        
-      const oldIndex = columnTasks.findIndex(t => t._id === active.id);
-      const newIndex = columnTasks.findIndex(t => t._id === over.id);
+    if (!activeTask) return;
 
-      if (oldIndex !== newIndex) {
-        const reorderedTasks = arrayMove(columnTasks, oldIndex, newIndex);
-        
-        // Create an array of update operations
-        const updates = reorderedTasks.map((task, index) => ({
-          ...task,
-          order: index
-        }));
-
-        // Store original tasks state
-        const originalTasks = [...tasks];
-
-        // Optimistically update UI for all affected tasks
-        queryClient.setQueryData(['tasks'], oldTasks => {
-          return oldTasks.map(t => {
-            const updatedTask = updates.find(u => u._id === t._id);
-            return updatedTask || t;
-          });
+    try {
+      if (activeTask.status !== targetStatus) {
+        // Moving to a different column
+        await updateTaskMutation.mutateAsync({
+          _id: activeTask._id,
+          status: targetStatus
         });
+      } else {
+        // Reordering within the same column
+        const columnTasks = tasks
+          .filter(t => t.status === activeTask.status)
+          .sort((a, b) => a.order - b.order);
 
-        try {
-          // Update all reordered tasks
-          await Promise.all(
-            updates.map(task => 
-              updateTaskMutation.mutateAsync({
-                _id: task._id,
-                status: task.status,
-                order: task.order
-              })
-            )
-          );
-        } catch (error) {
-          console.error('Error reordering tasks:', error);
-          // Revert to original state on error
-          queryClient.setQueryData(['tasks'], originalTasks);
+        const oldIndex = columnTasks.findIndex(t => t._id === activeTask._id);
+        const newIndex = columnTasks.findIndex(t => t._id === over.id);
+
+        if (oldIndex !== newIndex) {
+          await updateTaskMutation.mutateAsync({
+            _id: activeTask._id,
+            order: newIndex
+          });
         }
       }
+    } catch (error) {
+      console.error('Error updating task:', error);
     }
   };
 

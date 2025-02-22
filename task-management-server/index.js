@@ -90,57 +90,102 @@ async function run() {
       try {
         const { id } = req.params;
         const { status, order } = req.body;
-
+        
         // Find the task being updated
         const oldTask = await tasksCollection.findOne({ _id: new ObjectId(id) });
         if (!oldTask) {
           return res.status(404).send({ error: 'Task not found' });
         }
 
-        // If status is changing, handle reordering
+        // If moving to a different status (between columns)
         if (status && oldTask.status !== status) {
-          // Get tasks in target status
-          const tasksInTargetStatus = await tasksCollection
+          // Get tasks in the new status column
+          const tasksInNewStatus = await tasksCollection
             .find({ status })
             .sort({ order: 1 })
             .toArray();
 
-          // Update orders in target status to make room for new task
-          for (let i = tasksInTargetStatus.length - 1; i >= order; i--) {
-            await tasksCollection.updateOne(
-              { _id: tasksInTargetStatus[i]._id },
-              { $set: { order: i + 1 } }
-            );
-          }
-
-          // Get tasks in old status
+          // Get tasks in the old status column
           const tasksInOldStatus = await tasksCollection
-            .find({ status: oldTask.status, _id: { $ne: new ObjectId(id) } })
+            .find({ 
+              status: oldTask.status,
+              _id: { $ne: new ObjectId(id) }
+            })
             .sort({ order: 1 })
             .toArray();
 
-          // Reorder tasks in old status to fill the gap
-          for (let i = 0; i < tasksInOldStatus.length; i++) {
-            await tasksCollection.updateOne(
-              { _id: tasksInOldStatus[i]._id },
-              { $set: { order: i } }
-            );
-          }
-        }
-
-        // Update the task itself
-        const result = await tasksCollection.updateOne(
-          { _id: new ObjectId(id) },
-          {
-            $set: {
-              status: status || oldTask.status,
-              order: typeof order === 'number' ? order : oldTask.order,
-              updatedAt: new Date()
+          // First, update the task's status and order
+          await tasksCollection.updateOne(
+            { _id: new ObjectId(id) },
+            {
+              $set: {
+                status,
+                order: tasksInNewStatus.length, // Add to end of new column
+                updatedAt: new Date()
+              }
             }
-          }
-        );
+          );
 
-        res.send(result);
+          // Then, reorder tasks in the old status column
+          const updateOldStatusPromises = tasksInOldStatus.map((task, index) => {
+            return tasksCollection.updateOne(
+              { _id: task._id },
+              { $set: { order: index } }
+            );
+          });
+
+          await Promise.all(updateOldStatusPromises);
+
+          res.send({ success: true });
+        } 
+        // If reordering within the same status (within column)
+        else if (typeof order === 'number') {
+          const tasksInSameStatus = await tasksCollection
+            .find({ 
+              status: oldTask.status,
+              _id: { $ne: new ObjectId(id) }
+            })
+            .sort({ order: 1 })
+            .toArray();
+
+          // Make space for the task at the new position
+          await tasksCollection.updateMany(
+            { 
+              status: oldTask.status,
+              order: { $gte: order },
+              _id: { $ne: new ObjectId(id) }
+            },
+            { $inc: { order: 1 } }
+          );
+
+          // Update the task's order
+          await tasksCollection.updateOne(
+            { _id: new ObjectId(id) },
+            {
+              $set: {
+                order,
+                updatedAt: new Date()
+              }
+            }
+          );
+
+          // Normalize orders to prevent gaps
+          const allTasksInStatus = await tasksCollection
+            .find({ status: oldTask.status })
+            .sort({ order: 1 })
+            .toArray();
+
+          const updateOrderPromises = allTasksInStatus.map((task, index) => {
+            return tasksCollection.updateOne(
+              { _id: task._id },
+              { $set: { order: index } }
+            );
+          });
+
+          await Promise.all(updateOrderPromises);
+
+          res.send({ success: true });
+        }
       } catch (error) {
         console.error('Error updating task:', error);
         res.status(500).send({ error: 'Error updating task' });

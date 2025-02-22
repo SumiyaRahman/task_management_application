@@ -8,7 +8,7 @@ const TaskColumn = ({ title, tasks, status }) => {
     id: status,
     data: {
       type: 'Column',
-      status: status // Ensure we pass the correct status string
+      status
     }
   });
 
