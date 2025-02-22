@@ -127,14 +127,12 @@ async function run() {
           );
 
           // Then, reorder tasks in the old status column
-          const updateOldStatusPromises = tasksInOldStatus.map((task, index) => {
-            return tasksCollection.updateOne(
-              { _id: task._id },
-              { $set: { order: index } }
+          for (let i = 0; i < tasksInOldStatus.length; i++) {
+            await tasksCollection.updateOne(
+              { _id: tasksInOldStatus[i]._id },
+              { $set: { order: i } }
             );
-          });
-
-          await Promise.all(updateOldStatusPromises);
+          }
 
           res.send({ success: true });
         } 
@@ -147,16 +145,6 @@ async function run() {
             })
             .sort({ order: 1 })
             .toArray();
-
-          // Make space for the task at the new position
-          await tasksCollection.updateMany(
-            { 
-              status: oldTask.status,
-              order: { $gte: order },
-              _id: { $ne: new ObjectId(id) }
-            },
-            { $inc: { order: 1 } }
-          );
 
           // Update the task's order
           await tasksCollection.updateOne(
@@ -175,14 +163,12 @@ async function run() {
             .sort({ order: 1 })
             .toArray();
 
-          const updateOrderPromises = allTasksInStatus.map((task, index) => {
-            return tasksCollection.updateOne(
-              { _id: task._id },
-              { $set: { order: index } }
+          for (let i = 0; i < allTasksInStatus.length; i++) {
+            await tasksCollection.updateOne(
+              { _id: allTasksInStatus[i]._id },
+              { $set: { order: i } }
             );
-          });
-
-          await Promise.all(updateOrderPromises);
+          }
 
           res.send({ success: true });
         }

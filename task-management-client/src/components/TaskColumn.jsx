@@ -12,9 +12,6 @@ const TaskColumn = ({ title, tasks, status }) => {
     }
   });
 
-  // Sort tasks by order
-  const sortedTasks = [...tasks].sort((a, b) => a.order - b.order);
-
   return (
     <div
       ref={setNodeRef}
@@ -24,11 +21,11 @@ const TaskColumn = ({ title, tasks, status }) => {
     >
       <h3 className="text-xl font-semibold mb-4">{title}</h3>
       <SortableContext
-        items={sortedTasks.map(task => task._id)}
+        items={tasks.map(task => task._id)}
         strategy={verticalListSortingStrategy}
       >
         <div className="space-y-3 flex-1 overflow-auto">
-          {sortedTasks.map(task => (
+          {tasks.map(task => (
             <TaskCard key={task._id} task={task} />
           ))}
         </div>
