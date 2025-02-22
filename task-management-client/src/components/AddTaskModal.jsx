@@ -58,6 +58,21 @@ const AddTaskModal = ({ isOpen, onClose }) => {
               maxLength={200}
             />
           </div>
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text">Category</span>
+            </label>
+            <select
+              value={taskData.status}
+              onChange={(e) => setTaskData({ ...taskData, status: e.target.value })}
+              className="select select-bordered w-full"
+              required
+            >
+              <option value="todo">To Do</option>
+              <option value="in-progress">In Progress</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
           <div className="modal-action">
             <button type="button" className="btn" onClick={onClose}>
               Cancel

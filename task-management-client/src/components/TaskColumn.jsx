@@ -4,22 +4,31 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import TaskCard from './TaskCard';
 
 const TaskColumn = ({ title, tasks, status }) => {
-  const { setNodeRef } = useDroppable({
-    id: status
+  const { setNodeRef, isOver } = useDroppable({
+    id: status,
+    data: {
+      type: 'Column',
+      status: status // Ensure we pass the correct status string
+    }
   });
+
+  // Sort tasks by order
+  const sortedTasks = [...tasks].sort((a, b) => a.order - b.order);
 
   return (
     <div
       ref={setNodeRef}
-      className="bg-base-200 p-4 rounded-lg"
+      className={`bg-base-200 p-4 rounded-lg h-[calc(100vh-120px)] flex flex-col ${
+        isOver ? 'ring-2 ring-primary ring-inset' : ''
+      }`}
     >
       <h3 className="text-xl font-semibold mb-4">{title}</h3>
       <SortableContext
-        items={tasks.map(task => task._id)}
+        items={sortedTasks.map(task => task._id)}
         strategy={verticalListSortingStrategy}
       >
-        <div className="space-y-3">
-          {tasks.map(task => (
+        <div className="space-y-3 flex-1 overflow-auto">
+          {sortedTasks.map(task => (
             <TaskCard key={task._id} task={task} />
           ))}
         </div>
