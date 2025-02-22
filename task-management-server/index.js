@@ -91,21 +91,32 @@ async function run() {
         const { id } = req.params;
         const { status, order } = req.body;
         
-        // Find the task being updated
         const oldTask = await tasksCollection.findOne({ _id: new ObjectId(id) });
         if (!oldTask) {
           return res.status(404).send({ error: 'Task not found' });
         }
 
-        // If moving to a different status (between columns)
+        // Moving to different status
         if (status && oldTask.status !== status) {
-          // Get tasks in the new status column
+          // Get tasks in new status
           const tasksInNewStatus = await tasksCollection
             .find({ status })
             .sort({ order: 1 })
             .toArray();
 
-          // Get tasks in the old status column
+          // Update task with new status and order
+          await tasksCollection.updateOne(
+            { _id: new ObjectId(id) },
+            {
+              $set: {
+                status,
+                order: tasksInNewStatus.length,
+                updatedAt: new Date()
+              }
+            }
+          );
+
+          // Reorder tasks in old status
           const tasksInOldStatus = await tasksCollection
             .find({ 
               status: oldTask.status,
@@ -114,39 +125,39 @@ async function run() {
             .sort({ order: 1 })
             .toArray();
 
-          // First, update the task's status and order
-          await tasksCollection.updateOne(
-            { _id: new ObjectId(id) },
-            {
-              $set: {
-                status,
-                order: tasksInNewStatus.length, // Add to end of new column
-                updatedAt: new Date()
-              }
-            }
-          );
-
-          // Then, reorder tasks in the old status column
           for (let i = 0; i < tasksInOldStatus.length; i++) {
             await tasksCollection.updateOne(
               { _id: tasksInOldStatus[i]._id },
               { $set: { order: i } }
             );
           }
-
-          res.send({ success: true });
-        } 
-        // If reordering within the same status (within column)
+        }
+        // Reordering within same status
         else if (typeof order === 'number') {
-          const tasksInSameStatus = await tasksCollection
-            .find({ 
-              status: oldTask.status,
-              _id: { $ne: new ObjectId(id) }
-            })
-            .sort({ order: 1 })
-            .toArray();
+          // First update all other tasks' orders
+          if (order > oldTask.order) {
+            // Moving down
+            await tasksCollection.updateMany(
+              {
+                status: oldTask.status,
+                order: { $gt: oldTask.order, $lte: order },
+                _id: { $ne: new ObjectId(id) }
+              },
+              { $inc: { order: -1 } }
+            );
+          } else {
+            // Moving up
+            await tasksCollection.updateMany(
+              {
+                status: oldTask.status,
+                order: { $gte: order, $lt: oldTask.order },
+                _id: { $ne: new ObjectId(id) }
+              },
+              { $inc: { order: 1 } }
+            );
+          }
 
-          // Update the task's order
+          // Then update the dragged task
           await tasksCollection.updateOne(
             { _id: new ObjectId(id) },
             {
@@ -156,22 +167,9 @@ async function run() {
               }
             }
           );
-
-          // Normalize orders to prevent gaps
-          const allTasksInStatus = await tasksCollection
-            .find({ status: oldTask.status })
-            .sort({ order: 1 })
-            .toArray();
-
-          for (let i = 0; i < allTasksInStatus.length; i++) {
-            await tasksCollection.updateOne(
-              { _id: allTasksInStatus[i]._id },
-              { $set: { order: i } }
-            );
-          }
-
-          res.send({ success: true });
         }
+
+        res.send({ success: true });
       } catch (error) {
         console.error('Error updating task:', error);
         res.status(500).send({ error: 'Error updating task' });

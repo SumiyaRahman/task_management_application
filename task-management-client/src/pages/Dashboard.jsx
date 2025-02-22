@@ -77,113 +77,62 @@ const Dashboard = () => {
     if (!over) return;
 
     const activeTask = tasks.find(task => task._id === active.id);
-    if (!activeTask) return;
+    const overTask = tasks.find(task => task._id === over.id);
 
     try {
-      // Dropping in a column
+      // Moving between columns
       if (over.data?.current?.type === 'Column') {
         const newStatus = over.id;
         if (activeTask.status !== newStatus) {
-          // Store original task state
-          const originalTask = { ...activeTask };
-          
-          // Optimistically update UI
-          queryClient.setQueryData(['tasks'], oldTasks => 
-            oldTasks.map(t => t._id === activeTask._id 
-              ? { ...t, status: newStatus }
-              : t
-            )
-          );
-
-          try {
-            await updateTaskMutation.mutateAsync({
-              _id: activeTask._id,
-              status: newStatus,
-              order: tasks.filter(t => t.status === newStatus).length
-            });
-          } catch (error) {
-            // Revert on error
-            queryClient.setQueryData(['tasks'], oldTasks =>
-              oldTasks.map(t => t._id === activeTask._id ? originalTask : t)
-            );
-            throw error;
-          }
+          const tasksInNewStatus = tasks.filter(t => t.status === newStatus);
+          await updateTaskMutation.mutateAsync({
+            _id: activeTask._id,
+            status: newStatus,
+            order: tasksInNewStatus.length
+          });
         }
-        return;
       }
-
-      // Dropping on another task
-      const overTask = tasks.find(task => task._id === over.id);
-      if (!overTask) return;
-
-      // Same status, different position
-      if (activeTask.status === overTask.status) {
-        const sameColumnTasks = tasks
-          .filter(task => task.status === activeTask.status)
+      // Reordering within same column or moving to different column
+      else if (overTask) {
+        const sameColumn = activeTask.status === overTask.status;
+        const columnTasks = tasks
+          .filter(t => t.status === overTask.status)
           .sort((a, b) => a.order - b.order);
 
-        const oldIndex = sameColumnTasks.findIndex(task => task._id === active.id);
-        const newIndex = sameColumnTasks.findIndex(task => task._id === over.id);
+        if (sameColumn) {
+          // Reordering within same column
+          const oldIndex = columnTasks.findIndex(t => t._id === activeTask._id);
+          const newIndex = columnTasks.findIndex(t => t._id === overTask._id);
 
-        if (oldIndex !== newIndex) {
-          // Store original tasks state
-          const originalTasks = [...tasks];
-
-          // Optimistically update UI
-          queryClient.setQueryData(['tasks'], oldTasks => {
-            const newTasks = [...oldTasks];
-            const taskToMove = newTasks.find(t => t._id === activeTask._id);
-            const targetTask = newTasks.find(t => t._id === overTask._id);
-            if (taskToMove && targetTask) {
-              taskToMove.order = targetTask.order;
+          if (oldIndex !== newIndex) {
+            // Optimistically update UI
+            const newTasks = [...tasks];
+            const movedTask = newTasks.find(t => t._id === activeTask._id);
+            if (movedTask) {
+              movedTask.order = newIndex;
+              queryClient.setQueryData(['tasks'], newTasks);
             }
-            return newTasks;
-          });
 
-          try {
             await updateTaskMutation.mutateAsync({
               _id: activeTask._id,
               status: activeTask.status,
               order: newIndex
             });
-          } catch (error) {
-            // Revert on error
-            queryClient.setQueryData(['tasks'], originalTasks);
-            throw error;
           }
-        }
-      } 
-      // Different status
-      else {
-        // Store original task state
-        const originalTask = { ...activeTask };
-
-        // Optimistically update UI
-        queryClient.setQueryData(['tasks'], oldTasks =>
-          oldTasks.map(t => t._id === activeTask._id 
-            ? { ...t, status: overTask.status, order: overTask.order }
-            : t
-          )
-        );
-
-        try {
+        } else {
+          // Moving to different column
           await updateTaskMutation.mutateAsync({
             _id: activeTask._id,
             status: overTask.status,
             order: overTask.order
           });
-        } catch (error) {
-          // Revert on error
-          queryClient.setQueryData(['tasks'], oldTasks =>
-            oldTasks.map(t => t._id === activeTask._id ? originalTask : t)
-          );
-          throw error;
         }
       }
     } catch (error) {
       console.error('Error updating task:', error);
-      // Show error to user
       toast.error('Failed to update task. Please try again.');
+      // Refresh tasks on error to ensure correct state
+      queryClient.invalidateQueries(['tasks']);
     }
   };
 
